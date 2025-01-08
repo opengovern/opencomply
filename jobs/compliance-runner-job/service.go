@@ -17,8 +17,8 @@ import (
 	"github.com/opengovern/og-util/pkg/steampipe"
 	complianceApi "github.com/opengovern/opencomply/services/compliance/api"
 	complianceClient "github.com/opengovern/opencomply/services/compliance/client"
-	integration_type "github.com/opengovern/opencomply/services/integration/integration-type"
 	coreClient "github.com/opengovern/opencomply/services/core/client"
+	integration_type "github.com/opengovern/opencomply/services/integration/integration-type"
 	regoService "github.com/opengovern/opencomply/services/rego/service"
 	"go.uber.org/zap"
 )
@@ -29,7 +29,7 @@ type Config struct {
 	Compliance            config.OpenGovernanceService
 	Onboard               config.OpenGovernanceService
 	Inventory             config.OpenGovernanceService
-	Core              config.OpenGovernanceService
+	Core                  config.OpenGovernanceService
 	EsSink                config.OpenGovernanceService
 	Steampipe             config.Postgres
 	PrometheusPushAddress string
@@ -44,8 +44,8 @@ type Worker struct {
 	regoEngine       *regoService.RegoEngine
 	complianceClient complianceClient.ComplianceServiceClient
 
-	coreClient   coreClient.CoreServiceClient
-	sinkClient       esSinkClient.EsSinkServiceClient
+	coreClient coreClient.CoreServiceClient
+	sinkClient esSinkClient.EsSinkServiceClient
 
 	benchmarkCache map[string]complianceApi.Benchmark
 }
@@ -119,9 +119,9 @@ func NewWorker(
 		regoEngine:       regoEngine,
 		complianceClient: complianceClient.NewComplianceClient(config.Compliance.BaseURL),
 
-		coreClient:   coreClient.NewCoreServiceClient(config.Core.BaseURL),
-		sinkClient:       esSinkClient.NewEsSinkServiceClient(logger, config.EsSink.BaseURL),
-		benchmarkCache:   make(map[string]complianceApi.Benchmark),
+		coreClient:     coreClient.NewCoreServiceClient(config.Core.BaseURL),
+		sinkClient:     esSinkClient.NewEsSinkServiceClient(logger, config.EsSink.BaseURL),
+		benchmarkCache: make(map[string]complianceApi.Benchmark),
 	}
 	ctx2 := &httpclient.Context{Ctx: ctx, UserRole: api.AdminRole}
 	benchmarks, err := w.complianceClient.ListAllBenchmarks(ctx2, true)

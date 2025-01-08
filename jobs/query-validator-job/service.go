@@ -22,7 +22,7 @@ type Config struct {
 	Compliance            config.OpenGovernanceService
 	Onboard               config.OpenGovernanceService
 	Inventory             config.OpenGovernanceService
-	Core              config.OpenGovernanceService
+	Core                  config.OpenGovernanceService
 	EsSink                config.OpenGovernanceService
 	Steampipe             config.Postgres
 	PrometheusPushAddress string

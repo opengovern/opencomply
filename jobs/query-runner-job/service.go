@@ -28,7 +28,7 @@ type Config struct {
 	NATS                  config.NATS
 	Compliance            config.OpenGovernanceService
 	Onboard               config.OpenGovernanceService
-	Core              config.OpenGovernanceService
+	Core                  config.OpenGovernanceService
 	EsSink                config.OpenGovernanceService
 	Steampipe             config.Postgres
 	PrometheusPushAddress string
@@ -41,9 +41,9 @@ type Worker struct {
 	esClient         opengovernance.Client
 	jq               *jq.JobQueue
 	complianceClient complianceClient.ComplianceServiceClient
-	
-	coreClient   coreClient.CoreServiceClient
-	sinkClient       esSinkClient.EsSinkServiceClient
+
+	coreClient coreClient.CoreServiceClient
+	sinkClient esSinkClient.EsSinkServiceClient
 
 	benchmarkCache map[string]complianceApi.Benchmark
 }
@@ -102,10 +102,10 @@ func NewWorker(
 		esClient:         esClient,
 		jq:               jq,
 		complianceClient: complianceClient.NewComplianceClient(config.Compliance.BaseURL),
-	
-		coreClient:   coreClient.NewCoreServiceClient(config.Core.BaseURL),
-		sinkClient:       esSinkClient.NewEsSinkServiceClient(logger, config.EsSink.BaseURL),
-		benchmarkCache:   make(map[string]complianceApi.Benchmark),
+
+		coreClient:     coreClient.NewCoreServiceClient(config.Core.BaseURL),
+		sinkClient:     esSinkClient.NewEsSinkServiceClient(logger, config.EsSink.BaseURL),
+		benchmarkCache: make(map[string]complianceApi.Benchmark),
 	}
 	ctx2 := &httpclient.Context{Ctx: ctx, UserRole: api.AdminRole}
 	benchmarks, err := w.complianceClient.ListAllBenchmarks(ctx2, true)

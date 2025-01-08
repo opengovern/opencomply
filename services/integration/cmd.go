@@ -26,10 +26,10 @@ import (
 	"github.com/opengovern/og-util/pkg/postgres"
 	"github.com/opengovern/og-util/pkg/steampipe"
 	"github.com/opengovern/og-util/pkg/vault"
+	core "github.com/opengovern/opencomply/services/core/client"
 	"github.com/opengovern/opencomply/services/integration/api"
 	"github.com/opengovern/opencomply/services/integration/config"
 	"github.com/opengovern/opencomply/services/integration/db"
-	core "github.com/opengovern/opencomply/services/core/client"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

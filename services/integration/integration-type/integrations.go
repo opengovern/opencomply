@@ -66,19 +66,19 @@ var AllIntegrationTypes = []integration.Type{
 }
 
 var IntegrationTypes = map[integration.Type]interfaces.IntegrationType{
-	IntegrationTypeAWSAccount:             &aws_account.AwsCloudAccountIntegration{},
-	IntegrationTypeAzureSubscription:      &azure_subscription.AzureSubscriptionIntegration{},
-	IntegrationTypeEntraIdDirectory:       &entra_id_directory.EntraIdDirectoryIntegration{},
-	IntegrationTypeGithubAccount:          &githubaccount.GithubAccountIntegration{},
-	IntegrationTypeDigitalOceanTeam:       &digitalocean_team.DigitaloceanTeamIntegration{},
-	IntegrationTypeCloudflareAccount:      &cloudflareaccount.CloudFlareAccountIntegration{},
-	IntegrationTypeOpenAIIntegration:      &openaiproject.OpenAIIntegration{},
-	IntegrationTypeLinodeProject:          &linodeaccount.LinodeAccountIntegration{},
-	IntegrationTypeCohereAIProject:        &cohereaiproject.CohereAIProjectIntegration{},
-	IntegrationTypeGoogleWorkspaceAccount: &google_workspace_account.GoogleWorkspaceAccountIntegration{},
+	IntegrationTypeAWSAccount:             &aws_account.Integration{},
+	IntegrationTypeAzureSubscription:      &azure_subscription.Integration{},
+	IntegrationTypeEntraIdDirectory:       &entra_id_directory.Integration{},
+	IntegrationTypeGithubAccount:          &githubaccount.Integration{},
+	IntegrationTypeDigitalOceanTeam:       &digitalocean_team.Integration{},
+	IntegrationTypeCloudflareAccount:      &cloudflareaccount.Integration{},
+	IntegrationTypeOpenAIIntegration:      &openaiproject.Integration{},
+	IntegrationTypeLinodeProject:          &linodeaccount.Integration{},
+	IntegrationTypeCohereAIProject:        &cohereaiproject.Integration{},
+	IntegrationTypeGoogleWorkspaceAccount: &google_workspace_account.Integration{},
 	IntegrationTypeOCIRepository:          &oci.Integration{},
-	IntegrationTypeRenderAccount:          &render.RenderAccountIntegration{},
-	IntegrationTypeDopplerAccount:         &doppler.DopplerAccountIntegration{},
+	IntegrationTypeRenderAccount:          &render.Integration{},
+	IntegrationTypeDopplerAccount:         &doppler.Integration{},
 }
 
 func ParseType(str string) integration.Type {

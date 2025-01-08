@@ -25,7 +25,7 @@ type Config struct {
 	ElasticSearch config.ElasticSearch
 	NATS          config.NATS
 	Compliance    config.OpenGovernanceService
-	Core      config.OpenGovernanceService
+	Core          config.OpenGovernanceService
 	EsSink        config.OpenGovernanceService
 	Steampipe     config.Postgres
 }
@@ -37,7 +37,7 @@ type Worker struct {
 	esClient         opengovernance.Client
 	jq               *jq.JobQueue
 	complianceClient complianceClient.ComplianceServiceClient
-	coreClient   coreClient.CoreServiceClient
+	coreClient       coreClient.CoreServiceClient
 	sinkClient       esSinkClient.EsSinkServiceClient
 }
 
@@ -98,7 +98,7 @@ func NewWorker(
 		esClient:         esClient,
 		jq:               jq,
 		complianceClient: complianceClient.NewComplianceClient(config.Compliance.BaseURL),
-		coreClient:   coreClient.NewCoreServiceClient(config.Core.BaseURL),
+		coreClient:       coreClient.NewCoreServiceClient(config.Core.BaseURL),
 		sinkClient:       esSinkClient.NewEsSinkServiceClient(logger, config.EsSink.BaseURL),
 	}, nil
 }
