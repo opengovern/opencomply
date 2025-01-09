@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	integration_type "github.com/opengovern/opencomply/services/integration/integration-type"
+	"github.com/opengovern/opencomply/services/integration/client"
 	"strconv"
 	"time"
 
@@ -54,9 +54,23 @@ func NewWorker(
 	prometheusPushAddress string,
 	ctx context.Context,
 ) (*Worker, error) {
-	for _, integrationType := range integration_type.IntegrationTypes {
-		describerConfig := integrationType.GetConfiguration()
-		err := steampipe.PopulateSteampipeConfig(config.ElasticSearch, describerConfig.SteampipePluginName)
+	integrationClient := client.NewIntegrationServiceClient(config.Onboard.BaseURL)
+
+	httpCtx := httpclient.Context{Ctx: ctx, UserRole: api.ViewerRole}
+
+	integrationTypes, err := integrationClient.ListIntegrationTypes(&httpCtx)
+	if err != nil {
+		logger.Error("failed to list integration types", zap.Error(err))
+		return nil, err
+	}
+
+	for _, integrationType := range integrationTypes {
+		describerConfig, err := integrationClient.GetIntegrationConfiguration(&httpCtx, integrationType)
+		if err != nil {
+			logger.Error("failed to get integration configuration", zap.Error(err))
+			return nil, err
+		}
+		err = steampipe.PopulateSteampipeConfig(config.ElasticSearch, describerConfig.SteampipePluginName)
 		if err != nil {
 			return nil, err
 		}

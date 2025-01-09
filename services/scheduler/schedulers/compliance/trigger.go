@@ -1,6 +1,7 @@
 package compliance
 
 import (
+	"strings"
 	"time"
 
 	"github.com/opengovern/og-util/pkg/api"
@@ -70,7 +71,8 @@ func (s *JobScheduler) buildRunners(
 		if integrationType != nil && len(control.Policy.IntegrationType) > 0 {
 			supportsConnector := false
 			for _, c := range control.Policy.IntegrationType {
-				if *integrationType == c {
+				if strings.ToLower(
+					integrationType.String()) == strings.ToLower(c) {
 					supportsConnector = true
 					break
 				}

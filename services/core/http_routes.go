@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/opengovern/og-util/pkg/integration"
 	"net/http"
 	"net/url"
 	"sort"
@@ -544,11 +545,15 @@ func (h HttpHandler) GetQueryParameter(ctx echo.Context) error {
 				Required: parameter.Required,
 			})
 		}
+		integrationTypes := make([]integration.Type, 0, len(control.Policy.IntegrationType))
+		for _, i := range control.Policy.IntegrationType {
+			integrationTypes = append(integrationTypes, integration.Type(i))
+		}
 		query := api.Policy{
 			ID:              control.Policy.ID,
 			Language:        api.PolicyLanguage(control.Policy.Language),
 			Definition:      control.Policy.Definition,
-			IntegrationType: control.Policy.IntegrationType,
+			IntegrationType: integrationTypes,
 			PrimaryResource: control.Policy.PrimaryResource,
 			ListOfResources: control.Policy.ListOfResources,
 			Parameters:      parameters,
