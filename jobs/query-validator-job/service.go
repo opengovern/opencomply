@@ -44,7 +44,6 @@ func NewWorker(
 	logger *zap.Logger,
 	ctx context.Context,
 ) (*Worker, error) {
-
 	integrationClient := client.NewIntegrationServiceClient(config.Integration.BaseURL)
 
 	httpCtx := httpclient.Context{Ctx: ctx, UserRole: authApi.ViewerRole}
