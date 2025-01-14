@@ -73,7 +73,7 @@ func (j *Job) Run(ctx context.Context) error {
 			}
 
 			// write the plugin to the file system
-			pluginPath := dirPath + "/" + describerConfig.SteampipePluginName + ".plugin"
+			pluginPath := dirPath + "/steampipe-plugin-" + describerConfig.SteampipePluginName + ".plugin"
 			err := os.WriteFile(pluginPath, integrationBin.CloudQlPlugin, 0777)
 			if err != nil {
 				j.logger.Error("failed to write plugin to file system", zap.Error(err), zap.String("plugin", describerConfig.SteampipePluginName))
