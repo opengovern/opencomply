@@ -18,6 +18,8 @@ import (
 	dopplerConfigs "github.com/opengovern/opencomply/services/integration/integration-type/doppler-account/configs"
 	"github.com/opengovern/opencomply/services/integration/integration-type/entra-id-directory"
 	entraidConfigs "github.com/opengovern/opencomply/services/integration/integration-type/entra-id-directory/configs"
+	fly "github.com/opengovern/opencomply/services/integration/integration-type/fly-account"
+	flyConfigs "github.com/opengovern/opencomply/services/integration/integration-type/fly-account/configs"
 	githubaccount "github.com/opengovern/opencomply/services/integration/integration-type/github-account"
 	githubConfigs "github.com/opengovern/opencomply/services/integration/integration-type/github-account/configs"
 	google_workspace_account "github.com/opengovern/opencomply/services/integration/integration-type/google-workspace-account"
@@ -31,6 +33,8 @@ import (
 	openaiConfigs "github.com/opengovern/opencomply/services/integration/integration-type/openai-integration/configs"
 	render "github.com/opengovern/opencomply/services/integration/integration-type/render-account"
 	renderConfigs "github.com/opengovern/opencomply/services/integration/integration-type/render-account/configs"
+	tailscale "github.com/opengovern/opencomply/services/integration/integration-type/tailscale-account"
+	tailscaleConfigs "github.com/opengovern/opencomply/services/integration/integration-type/tailscale-account/configs"
 )
 
 const (
@@ -47,6 +51,8 @@ const (
 	IntegrationTypeOCIRepository          = ociConfigs.IntegrationTypeOciRepository
 	IntegrationTypeRenderAccount          = renderConfigs.IntegrationTypeRenderAccount
 	IntegrationTypeDopplerAccount         = dopplerConfigs.IntegrationTypeDopplerAccount
+	IntegrationTypeTailScaleAccount       = tailscaleConfigs.IntegrationTypeTailScaleAccount
+	IntegrationTypeFlyAccount             = flyConfigs.IntegrationTypeFlyAccount
 )
 
 var AllIntegrationTypes = []integration.Type{
@@ -63,6 +69,8 @@ var AllIntegrationTypes = []integration.Type{
 	IntegrationTypeOCIRepository,
 	IntegrationTypeRenderAccount,
 	IntegrationTypeDopplerAccount,
+	IntegrationTypeTailScaleAccount,
+	IntegrationTypeFlyAccount,
 }
 
 var IntegrationTypes = map[integration.Type]interfaces.IntegrationType{
@@ -79,6 +87,8 @@ var IntegrationTypes = map[integration.Type]interfaces.IntegrationType{
 	IntegrationTypeOCIRepository:          &oci.Integration{},
 	IntegrationTypeRenderAccount:          &render.RenderAccountIntegration{},
 	IntegrationTypeDopplerAccount:         &doppler.DopplerAccountIntegration{},
+	IntegrationTypeTailScaleAccount:       &tailscale.TailScaleAccountIntegration{},
+	IntegrationTypeFlyAccount:             &fly.FlyAccountIntegration{},
 }
 
 func ParseType(str string) integration.Type {
