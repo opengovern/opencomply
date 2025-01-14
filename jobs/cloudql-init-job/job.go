@@ -85,5 +85,12 @@ func (j *Job) Run(ctx context.Context) error {
 		return err
 	}
 
+	// execute command to start steampipe service
+	_, err = steampipe.StartSteampipeServiceAndGetConnection(j.logger)
+	if err != nil {
+		j.logger.Error("failed to start steampipe service", zap.Error(err))
+		return err
+	}
+
 	return nil
 }
