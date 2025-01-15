@@ -1,4 +1,4 @@
-package doppler_account
+package fly_account
 
 import (
 	"encoding/json"

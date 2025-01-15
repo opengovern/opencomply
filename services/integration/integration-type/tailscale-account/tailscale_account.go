@@ -1,4 +1,4 @@
-package doppler_account
+package tailscale_account
 
 import (
 	"encoding/json"
