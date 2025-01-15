@@ -45,7 +45,6 @@ type API struct {
 }
 
 const (
-	UiSpecsPath                     string = "/ui-specs"
 	TemplateDeploymentPath          string = "/integrations/deployment-template.yaml"
 	TemplateManualsDeploymentPath   string = "/integrations/deployment-template-manuals.yaml"
 	TemplateScaledObjectPath        string = "/integrations/scaled-object-template.yaml"
