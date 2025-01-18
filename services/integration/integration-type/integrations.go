@@ -71,10 +71,13 @@ type IntegrationTypeManager struct {
 	maxRetries int
 }
 
-func NewIntegrationTypeManager(logger *zap.Logger, integrationTypeDb *gorm.DB) *IntegrationTypeManager {
-	// TODO make these configurable
-	maxRetries := 5
-	pingInterval := 1 * time.Minute
+func NewIntegrationTypeManager(logger *zap.Logger, integrationTypeDb *gorm.DB, maxRetries int, pingInterval time.Duration) *IntegrationTypeManager {
+	if maxRetries == 0 {
+		maxRetries = 1
+	}
+	if pingInterval == 0 {
+		pingInterval = 5 * time.Minute
+	}
 
 	hcLogger := hczap.Wrap(logger)
 
@@ -242,10 +245,19 @@ func (m *IntegrationTypeManager) PingRoutine() {
 			}
 			lock.Lock()
 			if m.retryMap[t] < m.maxRetries {
-				m.retryMap[t]++
-				err = m.RetryRebootIntegrationType(t)
+				var current models.IntegrationPlugin
+				err := m.IntegrationTypeDb.Model(&models.IntegrationPlugin{}).Where("integration_type = ?", current).First(&current).Error
 				if err != nil {
-					m.logger.Error("failed to restart integration type", zap.Error(err), zap.String("integration_type", t.String()), zap.Int("retry_count", m.retryMap[t]))
+					m.logger.Error("failed to fetch integration plugin", zap.Error(err), zap.String("integration_type", current.IntegrationType.String()))
+					lock.Unlock()
+					continue
+				}
+				m.retryMap[current.IntegrationType]++
+				err = m.RetryRebootIntegrationType(&current)
+				if err != nil {
+					m.logger.Error("failed to restart integration type", zap.Error(err), zap.String("integration_type", current.IntegrationType.String()), zap.Int("retry_count", m.retryMap[t]))
+				} else {
+					m.retryMap[t] = 0
 				}
 			}
 			lock.Unlock()
@@ -253,52 +265,49 @@ func (m *IntegrationTypeManager) PingRoutine() {
 	}
 }
 
-func (m *IntegrationTypeManager) RetryRebootIntegrationType(t integration.Type) error {
-	m.logger.Info("restarting integration type", zap.String("integration_type", t.String()))
-	client, ok := m.clients[t]
+func (m *IntegrationTypeManager) RetryRebootIntegrationType(t *models.IntegrationPlugin) error {
+	m.logger.Info("rebooting integration type", zap.String("integration_type", t.IntegrationType.String()), zap.String("plugin_id", t.PluginID), zap.Int("retry_count", m.retryMap[t.IntegrationType]))
+	client, ok := m.clients[t.IntegrationType]
 	if ok {
 		client.Kill()
 	}
-	var current models.IntegrationPlugin
-	err := m.IntegrationTypeDb.Model(&models.IntegrationPlugin{}).Where("integration_type = ?", t).First(&current).Error
-	if err != nil {
-		m.logger.Error("failed to fetch integration plugin", zap.Error(err), zap.String("integration_type", t.String()))
-		return err
-	}
 
-	pluginPath := filepath.Join("/plugins", t.String()+".so")
+	pluginPath := filepath.Join("/plugins", t.IntegrationType.String()+".so")
 	client = plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: interfaces.HandshakeConfig,
-		Plugins:         map[string]plugin.Plugin{t.String(): &interfaces.IntegrationTypePlugin{}},
+		Plugins:         map[string]plugin.Plugin{t.IntegrationType.String(): &interfaces.IntegrationTypePlugin{}},
 		Cmd:             exec.Command(pluginPath),
 		Logger:          m.hcLogger,
 		Managed:         true,
 	})
 
 	changeToFailed := func() {
-		current.OperationalStatusUpdates = append(current.OperationalStatusUpdates,
-			fmt.Sprintf("Time: %s, Previous Status: %s, New Status: %s", time.Now().Format(time.RFC3339), current.OperationalStatus, models.IntegrationPluginOperationalStatusFailed))
-		if len(current.OperationalStatusUpdates) > 20 {
-			current.OperationalStatusUpdates = current.OperationalStatusUpdates[len(current.OperationalStatusUpdates)-20:]
+		if t.OperationalStatus == models.IntegrationPluginOperationalStatusFailed {
+			return
 		}
-		err = m.IntegrationTypeDb.Model(&models.IntegrationPlugin{}).Where("integration_type = ?", t).Updates(&current).Error
+		t.OperationalStatusUpdates = append(t.OperationalStatusUpdates,
+			fmt.Sprintf("Time: %s, Previous Status: %s, New Status: %s", time.Now().Format(time.RFC3339), t.OperationalStatus, models.IntegrationPluginOperationalStatusFailed))
+		if len(t.OperationalStatusUpdates) > 20 {
+			t.OperationalStatusUpdates = t.OperationalStatusUpdates[len(t.OperationalStatusUpdates)-20:]
+		}
+		err := m.IntegrationTypeDb.Model(&models.IntegrationPlugin{}).Where("integration_type = ?", t).Updates(&t).Error
 		if err != nil {
-			m.logger.Error("failed to update integration plugin operational status", zap.Error(err), zap.String("integration_type", t.String()))
+			m.logger.Error("failed to update integration plugin operational status", zap.Error(err), zap.String("integration_type", t.IntegrationType.String()))
 		}
 	}
 
 	rpcClient, err := client.Client()
 	if err != nil {
-		m.logger.Error("failed to create plugin client", zap.Error(err), zap.String("plugin", t.String()), zap.String("path", pluginPath))
+		m.logger.Error("failed to create plugin client", zap.Error(err), zap.String("plugin", t.IntegrationType.String()), zap.String("path", pluginPath))
 		client.Kill()
 		changeToFailed()
 		return err
 	}
 
 	// Request the plugin
-	raw, err := rpcClient.Dispense(t.String())
+	raw, err := rpcClient.Dispense(t.IntegrationType.String())
 	if err != nil {
-		m.logger.Error("failed to dispense plugin", zap.Error(err), zap.String("plugin", t.String()), zap.String("path", pluginPath))
+		m.logger.Error("failed to dispense plugin", zap.Error(err), zap.String("plugin", t.IntegrationType.String()), zap.String("path", pluginPath))
 		client.Kill()
 		changeToFailed()
 		return err
@@ -307,23 +316,23 @@ func (m *IntegrationTypeManager) RetryRebootIntegrationType(t integration.Type) 
 	// Cast the raw interface to the appropriate interface
 	itInterface, ok := raw.(interfaces.IntegrationType)
 	if !ok {
-		m.logger.Error("failed to cast plugin to integration type", zap.String("plugin", t.String()), zap.String("path", pluginPath))
+		m.logger.Error("failed to cast plugin to integration type", zap.String("plugin", t.IntegrationType.String()), zap.String("path", pluginPath))
 		client.Kill()
 		changeToFailed()
 		return err
 	}
 
-	m.IntegrationTypes[t] = itInterface
-	m.clients[t] = client
-	current.OperationalStatus = models.IntegrationPluginOperationalStatusEnabled
-	current.OperationalStatusUpdates = append(current.OperationalStatusUpdates,
-		fmt.Sprintf("Time: %s, Previous Status: %s, New Status: %s", time.Now().Format(time.RFC3339), models.IntegrationPluginOperationalStatusFailed, models.IntegrationPluginOperationalStatusEnabled))
-	if len(current.OperationalStatusUpdates) > 20 {
-		current.OperationalStatusUpdates = current.OperationalStatusUpdates[len(current.OperationalStatusUpdates)-20:]
+	m.IntegrationTypes[t.IntegrationType] = itInterface
+	m.clients[t.IntegrationType] = client
+	t.OperationalStatus = models.IntegrationPluginOperationalStatusEnabled //TODO remember enabled/disabled and change back to it here
+	t.OperationalStatusUpdates = append(t.OperationalStatusUpdates,
+		fmt.Sprintf("Time: %s, Previous Status: %s, New Status: %s. Successfully rebooted after detecting failed state", time.Now().Format(time.RFC3339), models.IntegrationPluginOperationalStatusFailed, models.IntegrationPluginOperationalStatusEnabled))
+	if len(t.OperationalStatusUpdates) > 20 {
+		t.OperationalStatusUpdates = t.OperationalStatusUpdates[len(t.OperationalStatusUpdates)-20:]
 	}
-	err = m.IntegrationTypeDb.Model(&models.IntegrationPlugin{}).Where("integration_type = ?", t).Updates(&current).Error
+	err = m.IntegrationTypeDb.Model(&models.IntegrationPlugin{}).Where("integration_type = ?", t).Updates(&t).Error
 	if err != nil {
-		m.logger.Error("failed to update integration plugin operational status", zap.Error(err), zap.String("integration_type", t.String()))
+		m.logger.Error("failed to update integration plugin operational status", zap.Error(err), zap.String("integration_type", t.IntegrationType.String()))
 	}
 
 	return nil

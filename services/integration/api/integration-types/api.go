@@ -608,14 +608,20 @@ func (a *API) ListPluginCredentials(c echo.Context) error {
 func (a *API) HealthCheck(c echo.Context) error {
 	id := c.Param("id")
 
+	plugin, err := a.database.GetPluginByID(id)
+	if err != nil {
+		a.logger.Error("failed to get plugin", zap.Error(err))
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get plugin")
+	}
+
 	rtMap := a.typeManager.GetIntegrationTypeMap()
-	if value, ok := rtMap[a.typeManager.ParseType(id)]; ok {
+	if value, ok := rtMap[plugin.IntegrationType]; ok {
 		err := value.Ping()
 		if err == nil {
 			return c.JSON(http.StatusOK, "plugin is healthy")
 		}
 
-		err = a.typeManager.RetryRebootIntegrationType(integration.Type(id))
+		err = a.typeManager.RetryRebootIntegrationType(plugin)
 		if err != nil {
 			return echo.NewHTTPError(400, fmt.Sprintf("plugin was found unhealthy and failed to reboot with error: %v", err))
 		} else {
