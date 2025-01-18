@@ -1,6 +1,7 @@
 package integration_types
 
 import (
+	"fmt"
 	"github.com/goccy/go-yaml"
 	"github.com/hashicorp/go-getter"
 	"github.com/labstack/echo/v4"
@@ -48,6 +49,7 @@ func (a *API) Register(e *echo.Group) {
 	plugin.GET("/:id", httpserver.AuthorizeHandler(a.GetPlugin, api.ViewerRole))
 	plugin.GET("/:id/integrations", httpserver.AuthorizeHandler(a.ListPluginIntegrations, api.ViewerRole))
 	plugin.GET("/:id/credentials", httpserver.AuthorizeHandler(a.ListPluginCredentials, api.ViewerRole))
+	plugin.POST("/:id/healthcheck", httpserver.AuthorizeHandler(a.HealthCheck, api.ViewerRole))
 }
 
 // List godoc
@@ -591,4 +593,35 @@ func (a *API) ListPluginCredentials(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, credentials)
+}
+
+// HealthCheck godoc
+//
+// @Summary			Health check
+// @Description		Health check
+// @Security		BearerToken
+// @Tags			integration_types
+// @Produce			json
+// @Param			id	path	string	true	"plugin id"
+// @Success			200
+// @Router			/integration/api/v1/plugin/{id}/healthcheck [post]
+func (a *API) HealthCheck(c echo.Context) error {
+	id := c.Param("id")
+
+	rtMap := a.typeManager.GetIntegrationTypeMap()
+	if value, ok := rtMap[a.typeManager.ParseType(id)]; ok {
+		err := value.Ping()
+		if err == nil {
+			return c.JSON(http.StatusOK, "plugin is healthy")
+		}
+
+		err = a.typeManager.RetryRebootIntegrationType(integration.Type(id))
+		if err != nil {
+			return echo.NewHTTPError(400, fmt.Sprintf("plugin was found unhealthy and failed to reboot with error: %v", err))
+		} else {
+			return c.JSON(http.StatusOK, "plugin was found unhealthy and got successfully rebooted")
+		}
+	} else {
+		return echo.NewHTTPError(404, "integration type not found")
+	}
 }
