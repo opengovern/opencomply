@@ -313,7 +313,6 @@ func (a *API) LoadPluginWithID(c echo.Context) error {
 	}
 
 	go func() {
-		a.logger.Info("loading plugin", zap.String("id", plugin.PluginID), zap.String("name", plugin.Name))
 		err = a.InstallOrUpdatePlugin(context.Background(), plugin)
 		if err != nil {
 			a.logger.Error("failed to update plugin", zap.Error(err), zap.String("id", pluginID))
@@ -1032,6 +1031,10 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 				}
 			}
 		}
+	} else if err == nil {
+		a.logger.Info("index-templates directory not found", zap.String("id", plugin.PluginID), zap.Any("stats", stats))
+	} else {
+		a.logger.Info("failed to check index-templates directory", zap.Error(err), zap.String("id", plugin.PluginID))
 	}
 
 	a.logger.Info("done reading files", zap.String("id", plugin.PluginID), zap.String("url", url), zap.String("integrationType", plugin.IntegrationType.String()), zap.Int("integrationPluginSize", len(integrationPlugin)), zap.Int("cloudqlPluginSize", len(cloudqlPlugin)))
