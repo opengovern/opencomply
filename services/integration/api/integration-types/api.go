@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/opengovern/og-util/pkg/opengovernance-es-sdk"
+	"github.com/opengovern/opencomply/jobs/post-install-job/job/migrations/elasticsearch"
 	hczap "github.com/zaffka/zap-to-hclog"
 	"golang.org/x/net/context"
+	"io/fs"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/big"
@@ -14,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/goccy/go-yaml"
@@ -39,13 +43,15 @@ type API struct {
 	logger      *zap.Logger
 	typeManager *integration_type.IntegrationTypeManager
 	database    db.Database
+	elastic     opengovernance.Client
 }
 
-func New(typeManager *integration_type.IntegrationTypeManager, database db.Database, logger *zap.Logger) *API {
+func New(typeManager *integration_type.IntegrationTypeManager, database db.Database, logger *zap.Logger, elastic opengovernance.Client) *API {
 	return &API{
 		logger:      logger.Named("integration_types"),
 		typeManager: typeManager,
 		database:    database,
+		elastic:     elastic,
 	}
 }
 
@@ -307,7 +313,7 @@ func (a *API) LoadPluginWithID(c echo.Context) error {
 	}
 
 	go func() {
-		err = a.InstallOrUpdatePlugin(plugin)
+		err = a.InstallOrUpdatePlugin(context.Background(), plugin)
 		if err != nil {
 			a.logger.Error("failed to update plugin", zap.Error(err), zap.String("id", pluginID))
 		}
@@ -468,7 +474,7 @@ func (a *API) LoadPluginWithURL(c echo.Context) error {
 		}
 
 		go func() {
-			err = a.InstallOrUpdatePlugin(plugin)
+			err = a.InstallOrUpdatePlugin(context.Background(), plugin)
 			if err != nil {
 				a.logger.Error("failed to update plugin", zap.Error(err), zap.String("id", plugin.PluginID))
 			}
@@ -913,7 +919,7 @@ func (a *API) HealthCheck(c echo.Context) error {
 	}
 }
 
-func (a *API) InstallOrUpdatePlugin(plugin *models2.IntegrationPlugin) (err error) {
+func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.IntegrationPlugin) (err error) {
 	defer func() {
 		if err != nil {
 			plugin.InstallState = models2.IntegrationTypeInstallStateNotInstalled
@@ -962,55 +968,89 @@ func (a *API) InstallOrUpdatePlugin(plugin *models2.IntegrationPlugin) (err erro
 		return err
 	}
 
-	{
-		// read integration-plugin file
-		integrationPlugin, err := os.ReadFile(baseDir + "/integarion_type/integration-plugin")
+	// read integration-plugin file
+	integrationPlugin, err := os.ReadFile(baseDir + "/integarion_type/integration-plugin")
+	if err != nil {
+		a.logger.Error("failed to open integration-plugin file", zap.Error(err), zap.String("id", plugin.PluginID))
+		return err
+	}
+	cloudqlPlugin, err := os.ReadFile(baseDir + "/integarion_type/cloudql-plugin")
+	if err != nil {
+		a.logger.Error("failed to open cloudql-plugin file", zap.Error(err), zap.String("id", plugin.PluginID))
+		return err
+	}
+
+	//// read manifest file
+	manifestFile, err := os.ReadFile(baseDir + "/integarion_type/manifest.yaml")
+	if err != nil {
+		a.logger.Error("failed to open manifest file", zap.Error(err))
+		return err
+	}
+	a.logger.Info("manifestFile", zap.String("file", string(manifestFile)))
+
+	var m models2.Manifest
+	// decode yaml
+	if err = yaml.Unmarshal(manifestFile, &m); err != nil {
+		a.logger.Error("failed to decode manifest", zap.Error(err), zap.String("url", url))
+		return err
+	}
+
+	// Opensearch templates
+	var files []string
+	if stats, err := os.Stat(filepath.Join(baseDir, "integarion_type", "index-templates")); err == nil && stats.IsDir() {
+		err = filepath.Walk(filepath.Join(baseDir, "integarion_type", "index-templates"), func(path string, info fs.FileInfo, err error) error {
+			if strings.HasSuffix(info.Name(), ".json") {
+				files = append(files, path)
+			}
+			return nil
+		})
 		if err != nil {
-			a.logger.Error("failed to open integration-plugin file", zap.Error(err), zap.String("id", plugin.PluginID))
+			a.logger.Error("failed to get files", zap.Error(err))
 			return err
 		}
-		cloudqlPlugin, err := os.ReadFile(baseDir + "/integarion_type/cloudql-plugin")
-		if err != nil {
-			a.logger.Error("failed to open cloudql-plugin file", zap.Error(err), zap.String("id", plugin.PluginID))
-			return err
+
+		// We need to create component templates first hence we are iterating over the files twice
+		for _, fp := range files {
+			if strings.Contains(fp, "_component_template") {
+				a.logger.Info("creating component template", zap.String("filepath", fp))
+				err = elasticsearch.CreateTemplate(ctx, a.elastic, a.logger, fp)
+				if err != nil {
+					a.logger.Error("failed to create component template", zap.Error(err), zap.String("filepath", fp), zap.String("id", plugin.PluginID))
+				}
+			}
 		}
 
-		//// read manifest file
-		manifestFile, err := os.ReadFile(baseDir + "/integarion_type/manifest.yaml")
-		if err != nil {
-			a.logger.Error("failed to open manifest file", zap.Error(err))
-			return err
+		for _, fp := range files {
+			if !strings.Contains(fp, "_component_template") {
+				a.logger.Info("creating template", zap.String("filepath", fp))
+				err = elasticsearch.CreateTemplate(ctx, a.elastic, a.logger, fp)
+				if err != nil {
+					a.logger.Error("failed to create template", zap.Error(err), zap.String("filepath", fp), zap.String("id", plugin.PluginID))
+				}
+			}
 		}
-		a.logger.Info("manifestFile", zap.String("file", string(manifestFile)))
+	}
 
-		var m models2.Manifest
-		// decode yaml
-		if err = yaml.Unmarshal(manifestFile, &m); err != nil {
-			a.logger.Error("failed to decode manifest", zap.Error(err), zap.String("url", url))
-			return err
-		}
+	a.logger.Info("done reading files", zap.String("id", plugin.PluginID), zap.String("url", url), zap.String("integrationType", plugin.IntegrationType.String()), zap.Int("integrationPluginSize", len(integrationPlugin)), zap.Int("cloudqlPluginSize", len(cloudqlPlugin)))
 
-		a.logger.Info("done reading files", zap.String("id", plugin.PluginID), zap.String("url", url), zap.String("integrationType", plugin.IntegrationType.String()), zap.Int("integrationPluginSize", len(integrationPlugin)), zap.Int("cloudqlPluginSize", len(cloudqlPlugin)))
+	plugin.DescriberURL = m.DescriberURL
+	plugin.DescriberTag = m.DescriberTag
 
-		plugin.DescriberURL = m.DescriberURL
-		plugin.DescriberTag = m.DescriberTag
+	pluginBinary := &models2.IntegrationPluginBinary{
+		PluginID: m.IntegrationType.String(),
 
-		pluginBinary := &models2.IntegrationPluginBinary{
-			PluginID: m.IntegrationType.String(),
-
-			IntegrationPlugin: integrationPlugin,
-			CloudQlPlugin:     cloudqlPlugin,
-		}
-		err = a.database.CreatePluginBinary(pluginBinary)
-		if err != nil {
-			a.logger.Error("failed to create plugin binary", zap.Error(err), zap.String("id", m.IntegrationType.String()))
-			return echo.NewHTTPError(http.StatusInternalServerError, "failed to create plugin binary")
-		}
-		err = a.LoadPlugin(context.Background(), plugin, pluginBinary)
-		if err != nil {
-			a.logger.Error("failed to load plugin", zap.Error(err), zap.String("id", plugin.PluginID))
-			return err
-		}
+		IntegrationPlugin: integrationPlugin,
+		CloudQlPlugin:     cloudqlPlugin,
+	}
+	err = a.database.CreatePluginBinary(pluginBinary)
+	if err != nil {
+		a.logger.Error("failed to create plugin binary", zap.Error(err), zap.String("id", m.IntegrationType.String()))
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create plugin binary")
+	}
+	err = a.LoadPlugin(context.Background(), plugin, pluginBinary)
+	if err != nil {
+		a.logger.Error("failed to load plugin", zap.Error(err), zap.String("id", plugin.PluginID))
+		return err
 	}
 
 	return nil
