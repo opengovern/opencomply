@@ -366,14 +366,14 @@ func (a *API) LoadPluginWithURL(c echo.Context) error {
 		}
 
 		// remove existing files
-		if err = os.RemoveAll(baseDir + "/integarion_type"); err != nil {
-			a.logger.Error("failed to remove existing files", zap.Error(err), zap.String("url", url), zap.String("path", baseDir+"/integarion_type"))
+		if err = os.RemoveAll(baseDir + "/integration_type"); err != nil {
+			a.logger.Error("failed to remove existing files", zap.Error(err), zap.String("url", url), zap.String("path", baseDir+"/integration_type"))
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to remove existing files")
 		}
 
 		downloader := getter.Client{
 			Src:  url,
-			Dst:  baseDir + "/integarion_type",
+			Dst:  baseDir + "/integration_type",
 			Mode: getter.ClientModeDir,
 		}
 		err = downloader.Get()
@@ -385,18 +385,18 @@ func (a *API) LoadPluginWithURL(c echo.Context) error {
 		// make scope to delete integrationPlugin and cloudqlPlugin after usage
 		{
 			// read integration-plugin file
-			integrationPlugin, err := os.ReadFile(baseDir + "/integarion_type/integration-plugin")
+			integrationPlugin, err := os.ReadFile(baseDir + "/integration_type/integration-plugin")
 			if err != nil {
 				a.logger.Error("failed to open integration-plugin file", zap.Error(err), zap.String("url", url))
 				return echo.NewHTTPError(http.StatusInternalServerError, "failed to open integration-plugin file")
 			}
-			cloudqlPlugin, err := os.ReadFile(baseDir + "/integarion_type/cloudql-plugin")
+			cloudqlPlugin, err := os.ReadFile(baseDir + "/integration_type/cloudql-plugin")
 			if err != nil {
 				a.logger.Error("failed to open cloudql-plugin file", zap.Error(err), zap.String("url", url))
 				return echo.NewHTTPError(http.StatusInternalServerError, "failed to open cloudql-plugin file")
 			}
 			//// read manifest file
-			manifestFile, err := os.ReadFile(baseDir + "/integarion_type/manifest.yaml")
+			manifestFile, err := os.ReadFile(baseDir + "/integration_type/manifest.yaml")
 			if err != nil {
 				a.logger.Error("failed to open manifest file", zap.Error(err))
 				return echo.NewHTTPError(http.StatusInternalServerError, "failed to open manifest file")
@@ -952,14 +952,14 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 	}
 	url := plugin.URL
 	// remove existing files
-	if err = os.RemoveAll(baseDir + "/integarion_type"); err != nil {
-		a.logger.Error("failed to remove existing files", zap.Error(err), zap.String("id", plugin.PluginID), zap.String("path", baseDir+"/integarion_type"))
+	if err = os.RemoveAll(baseDir + "/integration_type"); err != nil {
+		a.logger.Error("failed to remove existing files", zap.Error(err), zap.String("id", plugin.PluginID), zap.String("path", baseDir+"/integration_type"))
 		return err
 	}
 
 	downloader := getter.Client{
 		Src:  url,
-		Dst:  baseDir + "/integarion_type",
+		Dst:  baseDir + "/integration_type",
 		Mode: getter.ClientModeDir,
 	}
 	err = downloader.Get()
@@ -969,19 +969,19 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 	}
 
 	// read integration-plugin file
-	integrationPlugin, err := os.ReadFile(baseDir + "/integarion_type/integration-plugin")
+	integrationPlugin, err := os.ReadFile(baseDir + "/integration_type/integration-plugin")
 	if err != nil {
 		a.logger.Error("failed to open integration-plugin file", zap.Error(err), zap.String("id", plugin.PluginID))
 		return err
 	}
-	cloudqlPlugin, err := os.ReadFile(baseDir + "/integarion_type/cloudql-plugin")
+	cloudqlPlugin, err := os.ReadFile(baseDir + "/integration_type/cloudql-plugin")
 	if err != nil {
 		a.logger.Error("failed to open cloudql-plugin file", zap.Error(err), zap.String("id", plugin.PluginID))
 		return err
 	}
 
 	//// read manifest file
-	manifestFile, err := os.ReadFile(baseDir + "/integarion_type/manifest.yaml")
+	manifestFile, err := os.ReadFile(baseDir + "/integration_type/manifest.yaml")
 	if err != nil {
 		a.logger.Error("failed to open manifest file", zap.Error(err))
 		return err
@@ -998,9 +998,9 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 	// Opensearch templates
 	a.logger.Info("checking for index-templates", zap.String("id", plugin.PluginID))
 	var files []string
-	if stats, err := os.Stat(filepath.Join(baseDir, "integarion_type", "index-templates")); err == nil && stats.IsDir() {
+	if stats, err := os.Stat(filepath.Join(baseDir, "integration_type", "index-templates")); err == nil && stats.IsDir() {
 		a.logger.Info("found index-templates directory", zap.String("id", plugin.PluginID))
-		err = filepath.Walk(filepath.Join(baseDir, "integarion_type", "index-templates"), func(path string, info fs.FileInfo, err error) error {
+		err = filepath.Walk(filepath.Join(baseDir, "integration_type", "index-templates"), func(path string, info fs.FileInfo, err error) error {
 			if strings.HasSuffix(info.Name(), ".json") {
 				files = append(files, path)
 			}
@@ -1035,6 +1035,16 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 		a.logger.Info("index-templates directory not found", zap.String("id", plugin.PluginID), zap.Any("stats", stats))
 	} else {
 		a.logger.Info("failed to check index-templates directory", zap.Error(err), zap.String("id", plugin.PluginID))
+		// list every thing in the directory
+		entries, err := os.ReadDir(filepath.Join(baseDir, "integration_type"))
+		if err != nil {
+			a.logger.Error("failed to list files", zap.Error(err))
+		}
+		var dirFiles []string
+		for _, entry := range entries {
+			dirFiles = append(dirFiles, zap.Any("entry", entry).String)
+		}
+		a.logger.Info("files in directory", zap.Strings("files", dirFiles))
 	}
 
 	a.logger.Info("done reading files", zap.String("id", plugin.PluginID), zap.String("url", url), zap.String("integrationType", plugin.IntegrationType.String()), zap.Int("integrationPluginSize", len(integrationPlugin)), zap.Int("cloudqlPluginSize", len(cloudqlPlugin)))
