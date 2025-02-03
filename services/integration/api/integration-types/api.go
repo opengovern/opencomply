@@ -313,6 +313,7 @@ func (a *API) LoadPluginWithID(c echo.Context) error {
 	}
 
 	go func() {
+		a.logger.Info("loading plugin", zap.String("id", plugin.PluginID), zap.String("name", plugin.Name))
 		err = a.InstallOrUpdatePlugin(context.Background(), plugin)
 		if err != nil {
 			a.logger.Error("failed to update plugin", zap.Error(err), zap.String("id", pluginID))
