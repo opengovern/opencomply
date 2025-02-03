@@ -242,6 +242,10 @@ func isMetricsAPIAvailable(clientset *kubernetes.Clientset) bool {
 	// Check if "metrics.k8s.io" is present
 	for _, group := range apiGroups.Groups {
 		if strings.Contains(group.Name, "metrics.k8s.io") {
+			apiResources, err := discoveryClient.ServerResourcesForGroupVersion(group.PreferredVersion.GroupVersion)
+			if err != nil || len(apiResources.APIResources) == 0 {
+				return false
+			}
 			return true
 		}
 	}
