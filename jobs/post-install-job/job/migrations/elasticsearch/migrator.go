@@ -22,7 +22,7 @@ func (m Migration) IsGitBased() bool {
 }
 
 func (m Migration) AttachmentFolderPath() string {
-	return "/elasticsearch-index-config"
+	return config.IndexTemplatesPath
 }
 
 func (m Migration) Run(ctx context.Context, conf config.MigratorConfig, logger *zap.Logger) error {
@@ -77,6 +77,7 @@ func (m Migration) Run(ctx context.Context, conf config.MigratorConfig, logger *
 	}
 
 	var finalErr error
+	// We need to create component templates first hence we are iterating over the files twice
 	for _, fp := range files {
 		if strings.Contains(fp, "_component_template") {
 			err = CreateTemplate(ctx, elastic, logger, fp)
