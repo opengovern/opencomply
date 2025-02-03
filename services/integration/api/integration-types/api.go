@@ -996,8 +996,10 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 	}
 
 	// Opensearch templates
+	a.logger.Info("checking for index-templates", zap.String("id", plugin.PluginID))
 	var files []string
 	if stats, err := os.Stat(filepath.Join(baseDir, "integarion_type", "index-templates")); err == nil && stats.IsDir() {
+		a.logger.Info("found index-templates directory", zap.String("id", plugin.PluginID))
 		err = filepath.Walk(filepath.Join(baseDir, "integarion_type", "index-templates"), func(path string, info fs.FileInfo, err error) error {
 			if strings.HasSuffix(info.Name(), ".json") {
 				files = append(files, path)
