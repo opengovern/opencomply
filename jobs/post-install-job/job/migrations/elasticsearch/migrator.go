@@ -80,6 +80,7 @@ func (m Migration) Run(ctx context.Context, conf config.MigratorConfig, logger *
 	// We need to create component templates first hence we are iterating over the files twice
 	for _, fp := range files {
 		if strings.Contains(fp, "_component_template") {
+			logger.Info("creating component template", zap.String("filepath", fp))
 			err = CreateTemplate(ctx, elastic, logger, fp)
 			if err != nil {
 				finalErr = err
@@ -90,6 +91,7 @@ func (m Migration) Run(ctx context.Context, conf config.MigratorConfig, logger *
 
 	for _, fp := range files {
 		if !strings.Contains(fp, "_component_template") {
+			logger.Info("creating template", zap.String("filepath", fp))
 			err = CreateTemplate(ctx, elastic, logger, fp)
 			if err != nil {
 				finalErr = err

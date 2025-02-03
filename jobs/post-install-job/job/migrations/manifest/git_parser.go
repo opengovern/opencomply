@@ -157,6 +157,8 @@ func (g *GitParser) ExtractIntegrationBinaries(logger *zap.Logger, iPlugin Integ
 				err = os.CopyFS(filepath.Join(config.IndexTemplatesPath, iPlugin.IntegrationType.String()), fs)
 				if err != nil {
 					logger.Error("failed to copy index-templates folder", zap.Error(err))
+				} else {
+					logger.Info("index-templates folder copied successfully", zap.String("integrationType", iPlugin.IntegrationType.String()))
 				}
 			} else {
 				logger.Info("index-templates folder not found for integration type - skipping", zap.String("integrationType", iPlugin.IntegrationType.String()))
