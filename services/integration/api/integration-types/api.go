@@ -1031,20 +1031,6 @@ func (a *API) InstallOrUpdatePlugin(ctx context.Context, plugin *models2.Integra
 				}
 			}
 		}
-	} else if err == nil {
-		a.logger.Info("index-templates directory not found", zap.String("id", plugin.PluginID), zap.Any("stats", stats))
-	} else {
-		a.logger.Info("failed to check index-templates directory", zap.Error(err), zap.String("id", plugin.PluginID))
-		// list every thing in the directory
-		entries, err := os.ReadDir(filepath.Join(baseDir, "integration_type"))
-		if err != nil {
-			a.logger.Error("failed to list files", zap.Error(err))
-		}
-		var dirFiles []string
-		for _, entry := range entries {
-			dirFiles = append(dirFiles, zap.Any("entry", entry).String)
-		}
-		a.logger.Info("files in directory", zap.Strings("files", dirFiles))
 	}
 
 	a.logger.Info("done reading files", zap.String("id", plugin.PluginID), zap.String("url", url), zap.String("integrationType", plugin.IntegrationType.String()), zap.Int("integrationPluginSize", len(integrationPlugin)), zap.Int("cloudqlPluginSize", len(cloudqlPlugin)))
